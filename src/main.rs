@@ -1,3 +1,4 @@
+
 #[allow(unused)]
 use std::{
     cell::{Cell, RefCell, UnsafeCell},
@@ -6,27 +7,23 @@ use std::{
     mem::{ManuallyDrop, MaybeUninit},
     ops::{Deref, DerefMut},
     ptr::NonNull,
+    time::Duration,
     rc::Rc,
     sync::{*, atomic::{*, Ordering::*}},
-    thread::{self, Thread}
+    thread::{self, Thread},
+    time::Instant
 };
 
 fn main() {
-
-    fn x() {
-        println!("Hello World")
-    }
-
-    fn f(a: &Cell<i32>, b: &Cell<i32>) {
-        let before = a.get();
-        b.set(b.get() + 1);
-        let after = a.get();
-
-        if before != after {
-            x();
+    fn increment() {
+        static NEXT_ID: AtomicU32 = AtomicU32::new(0);
+        let mut id = NEXT_ID.load(Relaxed);
+        loop {
+            assert!(id < 1000, "Too many IDs!");
+            match NEXT_ID.compare_exchange_weak(id, id+1, Relaxed, Relaxed) {
+                Ok(_) => return,
+                Err(v) => id = v
+            }
         }
     }
-
-
-    f(&Cell::new(3), &Cell::new(3));
 }
