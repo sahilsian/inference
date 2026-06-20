@@ -1,29 +1,20 @@
+use std::net::TcpListener;
 
-#[allow(unused)]
-use std::{
-    cell::{Cell, RefCell, UnsafeCell},
-    collections::VecDeque,
-    marker:: PhantomData,
-    mem::{ManuallyDrop, MaybeUninit},
-    ops::{Deref, DerefMut},
-    ptr::NonNull,
-    time::Duration,
-    rc::Rc,
-    sync::{*, atomic::{*, Ordering::*}},
-    thread::{self, Thread},
-    time::Instant
-};
+use inference::startup::startup;
+use inference::configuration::get_config;
+use sqlx::PgPool;
 
-fn main() {
-    fn increment() {
-        static NEXT_ID: AtomicU32 = AtomicU32::new(0);
-        let mut id = NEXT_ID.load(Relaxed);
-        loop {
-            assert!(id < 1000, "Too many IDs!");
-            match NEXT_ID.compare_exchange_weak(id, id+1, Relaxed, Relaxed) {
-                Ok(_) => return,
-                Err(v) => id = v
-            }
-        }
-    }
+
+#[actix_web::main]
+async fn main() -> Result<(), std::io::Error> {
+    // main fn
+    let configuration = get_config()
+    .expect("Could not get configuration");
+
+    let database_pool = PgPool::connect_lazy_with(configuration.database.connection_options());
+
+    let address = format!("{}:{}", configuration.application.host, configuration.application.port);
+    let listener = TcpListener::bind(address).expect("Could not bind address to tcp listener");
+
+    startup(listener, database_pool)?.await
 }
